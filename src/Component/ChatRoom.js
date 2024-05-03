@@ -1,168 +1,72 @@
-import React, { useState, useEffect, useRef} from 'react';
-import Header from './Header';
-import { Box } from '@mui/material';
-// import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
-import Send from '../Asserts/send.png';
-const ChatRoom = ({ roomName }) => {
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
-  const messagesEndRef = useRef(null);
+import React, { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
+import Createroom from './CreateRoom';
+import { useParams } from 'react-router-dom';
 
-  const handleSendMessage = () => {
-    if (newMessage.trim() !== '') {
-      const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setMessages([...messages, { sender: 'Me', text: newMessage, time: currentTime}]);
-      setNewMessage('');
-    }
-  };
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+function ChatRoom() {
+  const [socket, setSocket] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageData, setMessageData] = useState([]); // Updated to useState
+  const { roomId } = useParams();
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-  
-  const handleKeyDown = (event) => {
-    if (event.key === 'Enter') {
-      handleSendMessage();
-    }
+    const username = localStorage.getItem('userName');
+    const socketUrl = `http://10.10.10.80:8085?room=${roomId}&username=${username}`;
+    
+    const newSocket = io(socketUrl, {
+      transports: ['websocket'],
+      upgrade: false
+    });
+
+    newSocket.on('connect', () => {
+      console.log('Socket connected');
+      setConnectionStatus(true);
+    });
+
+    newSocket.on('disconnect', () => {
+      console.log('Socket disconnected');
+      setConnectionStatus(false);
+    });
+
+    newSocket.on('receive_message', (data) => {
+      console.log('Received message from server:', data);
+      setMessageData(prevMessages => [...prevMessages, data]); // Update messageData
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [roomId]);
+
+  const handleChange = (e) => {
+    setMessage(e.target.value);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log('Sending message to server:', message);
+    socket.emit('send_message', message);
+    setMessage('');
   };
 
   return (
-    <div className="chat-room">
-      <Header />
-      
-      <Box
-      sx={{
-        height: '100%',
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'flex-start'
-      }}
-      >
-      <Box
-          backgroundColor="#f2f2f2"
-          height="80%"
-          width="95%"
-          marginTop='2%'
-          marginBottom='2%'
-          display="flex"
-          flexDirection="row"
-          p={2}
-          borderRadius={6}
-          sx={{ border: '1px solid white' }}
-      >
-      
-      <Box
-        backgroundColor="white"
-        height="70vh"
-        width="70%"
-        marginTop="2%"
-        marginBottom="2%"
-        marginLeft="1%"
-        borderRadius="3%"
-        position="relative"
-        overflow="auto"
-      >
-
-        <div
-          style={{ 
-            marginBottom: '10%', 
-            marginTop: '10%',
-            marginLeft: '5%',
-            marginRight: '5%',
-            color: 'white', 
-            backgroundColor: 'rgb(60,179,113)',
-            padding: '2%',
-            width: "fit-content",
-            borderRadius: "15px 40px 40px",
-            padding: "1%"
-            }}
-        >
-          <span>Hi I am the Server</span>
-        </div>
-        {messages.map((message, index) => (
-              <div
-              key={index}
-              style={{
-                maxWidth: '40%',
-                minWidth: '10%',
-                marginBottom: '1%',
-                marginTop: '1%',
-                marginLeft: message.sender === 'Me' ? 'auto' : '5%',
-                marginRight: message.sender === 'Me' ? '5%' : 'auto',
-                color: 'white',
-                backgroundColor: message.sender === 'Me' ? '#2196f3' : 'grey',
-                padding: '2%',
-                width: 'fit-content',
-                borderRadius: message.sender === 'Me' ? '40px 40px 15px' : '40px 15px 40px',
-                textAlign: message.sender === 'Me' ? 'left' : 'left'
-              }}
-              >
-                <strong>{message.sender}: </strong>
-                <span>{message.text}</span>
-                <p style={{ fontSize: '0.6rem', color: 'black', textAlign: 'right', margin: '0' }}>{message.time}</p>
-                <div ref={messagesEndRef} />
-              </div>
-         ))}
-
-        <div
-          style={{ 
-            marginBottom: '10%', 
-            marginTop: '10%',
-            marginLeft: '5%',
-            marginRight: '5%',
-            color: 'white', 
-            backgroundColor: 'rgb(60,179,113)',
-            width: "fit-content",
-            borderRadius: "15px 40px 40px",
-            padding: "1%"
-            }}
-        >
-          <span>Hi I am the Server</span>
-        </div>
-
-      </Box>
-
-      <Box
-        backgroundColor="black"
-        height="70vh"
-        width="27%"
-        marginTop="2%"
-        marginBottom="2%"
-        marginRight="-5%"
-        borderRadius="6%"
-        marginLeft="2%"
-        position="relative"
-      >
-
-        <h2 style={{color:"white", textAlign:"center"}}>{roomName}</h2>
-        <div style={{position: "absolute", bottom: 0, width:"100%", marginLeft:"3%", marginBottom: "5%"}}>
-        <input
-          type="text"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type your message..."
-          onKeyDown={handleKeyDown}
-          style={{padding: '3%', paddingRight:'20%', borderRadius: '40px 40px'}}
-        />
-        <Button variant="contained" color="success" onClick={handleSendMessage} sx={{padding:"2.4%", marginLeft:"3%", borderRadius: "40px 40px"}}>
-            <img src={Send} alt='send' height={20}/>
-        </Button>
-
-        </div>
-      </Box>
-
-      </Box>
-      </Box>
+    <div>
+      <h2>Socket Connection Status: {connectionStatus ? 'Connected' : 'Disconnected'}</h2>
+      <form onSubmit={handleSubmit}>
+        <input type="text" value={message} onChange={handleChange} placeholder="Enter message" />
+        <button type="submit">Send</button>
+      </form>
+      <div>
+        <h3>Received Messages:</h3>
+        {messageData.map((msg, index) => (
+          <p key={index}>{msg.content}</p> // Display each message
+        ))}
+      </div>
     </div>
   );
-};
+}
 
 export default ChatRoom;
-

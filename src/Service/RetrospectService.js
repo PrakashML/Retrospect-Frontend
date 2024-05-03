@@ -20,6 +20,11 @@ class RetrospectService {
   getAllRooms(){
     return axios.get("http://localhost:8080/rooms")
   }
+
+  createRoom(roomDetails) {
+    return axios.post("http://localhost:8080/addrooms", roomDetails);
+  }
+
 }
 
 const retro = new RetrospectService();
