@@ -1,16 +1,18 @@
 // useSocketService.js
 import { useState, useEffect } from 'react';
 import * as io from 'socket.io-client';
+import { useParams } from 'react-router-dom';
 
 function useSocketService() {
   const [socket, setSocket] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState(false);
-  const [receivedMessage, setReceivedMessage] = useState(null);
+  // const [receivedMessage, setReceivedMessage] = useState(null);
+  const [messageData, setMessageData] = useState([]);
+  const { roomId } = useParams();
 
   useEffect(() => {
-    const room = localStorage.getItem('roomId');
     const username = localStorage.getItem('userName');
-    const socketUrl = "http://10.10.10.80:8085?room=1&username=sai";
+    const socketUrl = `http://192.168.0.107:8085?room=${roomId}&username=${username}"`;
     
     // Create a Netty Socket.IO client instance
     const newSocket = io(socketUrl, {
@@ -31,7 +33,7 @@ function useSocketService() {
 
     newSocket.on('receive_message', (data) => {
       console.log('Received message from server:', data);
-      setReceivedMessage(data);
+      setMessageData(prevMessages => [...prevMessages, data])
     });
 
     setSocket(newSocket);
@@ -39,7 +41,7 @@ function useSocketService() {
     return () => {
       newSocket.disconnect();
     };
-  }, []);
+  }, [roomId]);
 
   const sendMessage = (data) => {
     console.log('Sending message to server:', data);
@@ -48,7 +50,7 @@ function useSocketService() {
 
   return {
     connectionStatus,
-    receivedMessage,
+    messageData,
     sendMessage,
   };
 }
