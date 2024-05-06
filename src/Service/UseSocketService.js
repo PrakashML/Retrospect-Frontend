@@ -12,7 +12,7 @@ function useSocketService() {
 
   useEffect(() => {
     const username = localStorage.getItem('userName');
-    const socketUrl = `http://192.168.0.107:8085?room=${roomId}&username=${username}"`;
+    const socketUrl = `http://192.168.0.228:8085?room=${roomId}&username=${username}"`;
     
     // Create a Netty Socket.IO client instance
     const newSocket = io(socketUrl, {

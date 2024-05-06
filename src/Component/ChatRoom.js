@@ -20,7 +20,7 @@ function ChatRoom() {
 
   useEffect(() => {
     const username = localStorage.getItem('userName');
-    const socketUrl = `http://192.168.0.107:8085?room=${roomId}&username=${username}`;
+    const socketUrl = `http://192.168.0.228:8085?room=${roomId}&username=${username}`;
     
     const newSocket = io(socketUrl, {
       transports: ['websocket'],
@@ -40,6 +40,7 @@ function ChatRoom() {
     newSocket.on('receive_message', (data) => {
       console.log('Received message from server:', data);
       setReceivedMessage(data);
+      
     });
 
     setSocket(newSocket);
@@ -164,7 +165,7 @@ function ChatRoom() {
                             <div className="message-data">
                                 <p key={index}>{msg.content}</p>
                             </div>
-                            {<div className="avatar self">{username}</div>}
+                            {<div className="avatar self">{msg.username}</div>}
                         </li>
                     ))}
                 </ul>
@@ -178,12 +179,12 @@ function ChatRoom() {
             {tab==="Bad" && <div className="chat-content">
                 <ul className="chat-messages">
                     {badMessages.map((msg, index)=>(
-                        <li className={`message ${username === username && "self"}`} key={index}>
+                        <li className={`message ${username === username}`} key={index}>
                             {/* {chat.senderName !== userData.username && <div className="avatar">Incoming</div>} */}
                             <div className="message-data">
                                 <p key={index}>{msg.content}</p>
                             </div>
-                            {<div className="avatar self">{username}</div>}
+                            {<div className="avatar self">{msg.username}</div>}
                         </li>
                     ))}
                 </ul>
