@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useParams } from 'react-router-dom';
 import Header from './Header'
+
 
 function ChatRoom() {
   const [socket, setSocket] = useState(null);
@@ -16,7 +17,12 @@ function ChatRoom() {
   const [commonMessageText, setCommonMessageText] = useState('');
   const [badMessages, setBadMessages] = useState([]);
   const [badMessageText, setBadMessageText] = useState('');
-  const [avgMessageText, setAvgMessageText] = useState('');
+  const [posMessages, setPosMessages]  = useState([]);
+  const [posMessageText, setPosMessageText] = useState('');
+  const [blunderMessages, setBlunderMessages] = useState([]);
+  const [blunderMessageText, setBlunderMessageText] = useState('');
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const username = localStorage.getItem('userName');
@@ -76,6 +82,12 @@ function ChatRoom() {
         case 'Bad':
           setBadMessages(prevMessages => [...prevMessages, receivedMessage]);
           break;
+        case 'Pos':
+          setPosMessages(prevMessages => [...prevMessages, receivedMessage]);
+          break;
+        case 'Blunder':
+          setBlunderMessages(prevMessages => [...prevMessages, receivedMessage]);
+          break;
         default:
           break;
       }
@@ -101,17 +113,36 @@ function ChatRoom() {
       case 'Bad':
         setBadMessageText('');
         break;
-      case 'Avg':
-        setAvgMessageText('');
+      case 'Pos':
+        setPosMessageText('');
+        break;
+      case 'Blunder':
+        setBlunderMessageText('');
         break;
       default:
         break;
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messageData, goodMessages, badMessages, posMessages, blunderMessages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   const sendMessage = (data) => {
     console.log('Sending message to server:', data);
     socket.emit('message', data);
+    inputRef.current.focus();
   };
 
 
@@ -134,6 +165,12 @@ function ChatRoom() {
                 </ul>
                 <ul>
                     <li onClick={()=>{setTab("Bad")}} className={`member ${tab==="Bad" && "active"}`}>What Went Wrong</li>
+                </ul>
+                <ul>
+                    <li onClick={()=>{setTab("Pos")}} className={`member ${tab==="Pos" && "active"}`}>Positives</li>
+                </ul>
+                <ul>
+                    <li onClick={()=>{setTab("Blunder")}} className={`member ${tab==="Blunder" && "active"}`}>Blunders</li>
                 </ul>
             </div>
 
@@ -168,10 +205,11 @@ function ChatRoom() {
                             {<div className="avatar self">{msg.username}</div>}
                         </li>
                     ))}
+                    <div ref={messagesEndRef} />
                 </ul>
 
                 <div className="send-message">
-                    <input type="text" className="input-message" placeholder="enter the message" value={goodMessageText} onChange={(e) => setGoodMessageText(e.target.value)} /> 
+                    <input type="text" className="input-message" placeholder="enter the message" value={goodMessageText} onChange={(e) => setGoodMessageText(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef}/> 
                     <button type="button" className="send-button" onClick={() => handleSendMessage(goodMessageText, 'Good')}>send</button>
                 </div>
             </div>}
@@ -179,7 +217,7 @@ function ChatRoom() {
             {tab==="Bad" && <div className="chat-content">
                 <ul className="chat-messages">
                     {badMessages.map((msg, index)=>(
-                        <li className={`message ${username === username}`} key={index}>
+                        <li className={`message ${username === username && "self"}`} key={index}>
                             {/* {chat.senderName !== userData.username && <div className="avatar">Incoming</div>} */}
                             <div className="message-data">
                                 <p key={index}>{msg.content}</p>
@@ -187,11 +225,52 @@ function ChatRoom() {
                             {<div className="avatar self">{msg.username}</div>}
                         </li>
                     ))}
+                    <div ref={messagesEndRef} />
                 </ul>
 
                 <div className="send-message">
-                    <input type="text" className="input-message" placeholder="enter the message" value={badMessageText} onChange={(e) => setBadMessageText(e.target.value)} /> 
+                    <input type="text" className="input-message" placeholder="enter the message" value={badMessageText} onChange={(e) => setBadMessageText(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef}/> 
                     <button type="button" className="send-button" onClick={() => handleSendMessage(badMessageText, 'Bad')}>send</button>
+                </div>
+            </div>}
+
+            {tab==="Pos" && <div className="chat-content">
+                <ul className="chat-messages">
+                    {posMessages.map((msg, index)=>(
+                        <li className={`message ${username === username && "self"}`} key={index}>
+                            {/* {chat.senderName !== userData.username && <div className="avatar">Incoming</div>} */}
+                            <div className="message-data">
+                                <p key={index}>{msg.content}</p>
+                            </div>
+                            {<div className="avatar self">{msg.username}</div>}
+                        </li>
+                    ))}
+                    <div ref={messagesEndRef} />
+                </ul>
+
+                <div className="send-message">
+                    <input type="text" className="input-message" placeholder="enter the message" value={posMessageText} onChange={(e) => setPosMessageText(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef}/> 
+                    <button type="button" className="send-button" onClick={() => handleSendMessage(posMessageText, 'Pos')}>send</button>
+                </div>
+            </div>}
+
+            {tab==="Blunder" && <div className="chat-content">
+                <ul className="chat-messages">
+                    {blunderMessages.map((msg, index)=>(
+                        <li className={`message ${username === username && "self"}`} key={index}>
+                            {/* {chat.senderName !== userData.username && <div className="avatar">Incoming</div>} */}
+                            <div className="message-data">
+                                <p key={index}>{msg.content}</p>
+                            </div>
+                            {<div className="avatar self">{msg.username}</div>}
+                        </li>
+                    ))}
+                    <div ref={messagesEndRef} />
+                </ul>
+
+                <div className="send-message">
+                    <input type="text" className="input-message" placeholder="enter the message" value={blunderMessageText} onChange={(e) => setBlunderMessageText(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef}/> 
+                    <button type="button" className="send-button" onClick={() => handleSendMessage(blunderMessageText, 'Blunder')}>send</button>
                 </div>
             </div>}
 
