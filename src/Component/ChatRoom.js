@@ -1,298 +1,329 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { io } from 'socket.io-client';
 import { useParams } from 'react-router-dom';
-import Header from './Header'
+import './ChatRoom.css'
+import './LoginHeader'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import LoginHeader from './LoginHeader';
+import { styled } from '@mui/material/styles';
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import RetrospectService from '../Service/RetrospectService';
+import Typography from '@mui/material/Typography';
+import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
+import Fab from '@mui/material/Fab';
+import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
+import OptionsMenu from './OptionsMenu';
+
+const BootstrapDialog = styled(Dialog)(({ theme }) => ({
+    '& .MuiDialogContent-root': {
+      padding: theme.spacing(2),
+    },
+    '& .MuiDialogActions-root': {
+      padding: theme.spacing(1),
+    },
+  }));
+
+
+const MessageSection = memo(({ title, messages, inputValue, onInputChange, onSendMessage }) => {
+    const [anchorEl, setAnchorEl] = useState(null);
+    const [selectedMessageId, setSelectedMessageId] = useState(null);
+
+    const handleOptionsClick = (event, messageId) => {
+        setAnchorEl(event.currentTarget);
+        setSelectedMessageId(messageId);
+    };
+
+    const handleOptionsClose = () => {
+        setAnchorEl(null);
+        setSelectedMessageId(null);
+    };
+
+    const handleDelete = async () => {
+        try {
+            if (selectedMessageId) {
+                await RetrospectService.deleteMessageById(selectedMessageId);
+                console.log('Message deleted successfully');
+                setAnchorEl(null);
+            }
+        } catch (error) {
+            console.error('Error deleting message:', error);
+        }
+    };
+    
+
+    return (
+        <div className="message-section">
+            <div style={{display: "flex", justifyContent: "space-between"}}>
+                <h3 className='title'>{title}</h3>
+                <AddCircleOutlineRoundedIcon style={{marginTop: '8%'}}/>
+            </div>
+            
+            <div className="messages">
+                {messages.map((msg, index) => (
+                    <>
+                    <p key={index} className={`${getClassName(msg.contentType)} message`}>
+                        {msg.username}: {msg.content}
+                        <img src='../Asserts/options.png' alt='options' height='20vh' className="options-image" onClick={() => handleOptionsClick(msg.id)} style={{cursor: 'pointer'}}/>
+                        <OptionsMenu anchorEl={anchorEl} onClose={handleOptionsClose} onDelete={handleDelete}/>
+                    </p>
+                    </>
+                ))}
+            </div>
+
+            <div className="input-area">
+                <textarea
+                    value={inputValue}
+                    onChange={(e) => onInputChange(e.target.value)}
+                    placeholder={`Type your ${title} message here...`}
+                    rows="3"
+                />
+                <button className="send-button" onClick={onSendMessage}>+</button>
+            </div>
+        </div>
+    );
+});
+
+
+// Helper function to determine the class based on message type
+function getClassName(contentType) {
+  switch (contentType) {
+    case 'Good':
+      return 'good-message';
+    case 'Bad':
+      return 'bad-message';
+    case 'Pos':
+      return 'pos-message';
+    case 'Blunder':
+      return 'blunder-message';
+    default:
+      return '';
+  }
+}
 
 
 function ChatRoom() {
-  const [socket, setSocket] = useState(null);
-  const [connectionStatus, setConnectionStatus] = useState(false);
-  const [message, setMessage] = useState('');
-  const [messageData, setMessageData] = useState([]); // Updated to useState
-  const { roomId } = useParams();
-  const username = localStorage.getItem('userName');
-  const [goodMessages ,setGoodMessages] = useState([]);
-  const [goodMessageText, setGoodMessageText] = useState('');
-  const [receivedMessage, setReceivedMessage] = useState(null);
-  const [commonMessageText, setCommonMessageText] = useState('');
-  const [badMessages, setBadMessages] = useState([]);
-  const [badMessageText, setBadMessageText] = useState('');
-  const [posMessages, setPosMessages]  = useState([]);
-  const [posMessageText, setPosMessageText] = useState('');
-  const [blunderMessages, setBlunderMessages] = useState([]);
-  const [blunderMessageText, setBlunderMessageText] = useState('');
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
-
-  useEffect(() => {
+    const { roomId } = useParams();
     const username = localStorage.getItem('userName');
-    const socketUrl = `http://192.168.0.228:8085?room=${roomId}&username=${username}`;
-    
-    const newSocket = io(socketUrl, {
-      transports: ['websocket'],
-      upgrade: false
+    const [room, setRoom] = useState([]);
+    // const [messageData, setMessageData] = useState([]);
+    const [goodMessages, setGoodMessages] = useState([]);
+    const [badMessages, setBadMessages] = useState([]);
+    const [posMessages, setPosMessages] = useState([]);
+    const [blunderMessages, setBlunderMessages] = useState([]);
+    const [open, setOpen] = useState(false);
+    const [anchorEl, setAnchorEl] = React.useState(null);
+    const [messageInputs, setMessageInputs] = useState({
+        Good: '',
+        Bad: '',
+        Pos: '',
+        Blunder: ''
     });
 
-    newSocket.on('connect', () => {
-      console.log('Socket connected');
-      setConnectionStatus(true);
-    });
+    // Using useRef to manage the socket instance
+    const socketRef = useRef(null);
 
-    newSocket.on('disconnect', () => {
-      console.log('Socket disconnected');
-      setConnectionStatus(false);
-    });
 
-    newSocket.on('receive_message', (data) => {
-      console.log('Received message from server:', data);
-      setReceivedMessage(data);
-      
-    });
 
-    setSocket(newSocket);
+    useEffect(() => {
+        // Initialize socket only once
+        if (!socketRef.current) {
+            const socketUrl = `http://192.168.0.43:8085?room=${roomId}&username=${username}`;
+            socketRef.current = io(socketUrl, { transports: ['websocket'], upgrade: false });
 
-    return () => {
-      newSocket.disconnect();
+            socketRef.current.on('connect', () => {
+                console.log('Socket connected');
+            });
+
+            socketRef.current.on('receive_message', (data) => {
+                console.log('Received message from server:', data);
+                switch (data.contentType) {
+                    case 'Good':
+                        setGoodMessages(prev => [...prev, data]);
+                        break;
+                    case 'Bad':
+                        setBadMessages(prev => [...prev, data]);
+                        break;
+                    case 'Pos':
+                        setPosMessages(prev => [...prev, data]);
+                        break;
+                    case 'Blunder':
+                        setBlunderMessages(prev => [...prev, data]);
+                        break;
+                    default:
+                        // setMessageData(prev => [...prev, data]);
+                        break;
+                }
+            });
+
+            socketRef.current.on('disconnect', () => {
+                console.log('Socket disconnected');
+            });
+        }
+
+        return () => {
+            if (socketRef.current) {
+                socketRef.current.disconnect();
+                console.log('Socket disconnected on cleanup');
+                socketRef.current = null;
+            }
+        };
+    }, [roomId, username]); // Dependencies to recreate the socket if these change
+
+    const fetchRoom = async () => {
+        try {
+            const response = await RetrospectService.getRoomById(roomId);
+            setRoom(response.data);
+        } catch (error) {
+            console.error('Error fetching rooms:', error);
+        }
     };
-  }, [roomId]);
 
-  const handleChange = (e) => {
-    setMessage(e.target.value);
-  };
+    useEffect(() => {
+        fetchRoom();
+    }, [roomId]);
 
-  const handleSubmit = (e, contentType) => {
-    e.preventDefault();
-    console.log('Sending message to server:', message);
-    const data ={
-      "room": roomId,
-      "username": username,
-      "content": message,
-      "contentType": 'message'
-  }
-    socket.emit('message', data);
-    setMessage('');
-  };
+    // Fetch messages on mount
+    useEffect(() => {
+        const fetchMessages = async () => {
+            try {
+                const response = await fetch(`http://localhost:8080/message/${roomId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const messages = await response.json();
 
-  useEffect(() => {
-    if (receivedMessage) {
-      switch (receivedMessage.contentType) {
-        case 'Good':
-          setGoodMessages(prevMessages => [...prevMessages, receivedMessage]);
-          break;
-        case 'Bad':
-          setBadMessages(prevMessages => [...prevMessages, receivedMessage]);
-          break;
-        case 'Pos':
-          setPosMessages(prevMessages => [...prevMessages, receivedMessage]);
-          break;
-        case 'Blunder':
-          setBlunderMessages(prevMessages => [...prevMessages, receivedMessage]);
-          break;
-        default:
-          break;
-      }
-    }
-  }, [receivedMessage]);
+                // Categorize messages based on their contentType
+                const good = [];
+                const bad = [];
+                const pos = [];
+                const blunder = [];
+                messages.forEach(msg => {
+                    switch (msg.contentType) {
+                        case 'Good':
+                            good.push(msg);
+                            break;
+                        case 'Bad':
+                            bad.push(msg);
+                            break;
+                        case 'Pos':
+                            pos.push(msg);
+                            break;
+                        case 'Blunder':
+                            blunder.push(msg);
+                            break;
+                        default:
+                            break;
+                    }
+                });
 
+                // Update state with fetched messages
+                setGoodMessages(good);
+                setBadMessages(bad);
+                setPosMessages(pos);
+                setBlunderMessages(blunder);
+            } catch (error) {
+                console.error("Failed to fetch messages:", error);
+            }
+        };
 
-  const handleSendMessage = (message, contentType) => {
-    const data = {
-      content: message,
-      room: roomId,
-      username,
-      contentType
+        fetchMessages();
+    }, [roomId]); // Dependency on roomId ensures this runs if roomId changes
+
+    const opens = Boolean(anchorEl);
+
+    const handleInputChange = (value, category) => {
+        setMessageInputs(prev => ({ ...prev, [category]: value }));
     };
-    sendMessage(data);
-    switch (contentType) {
-      case 'Common':
-        setCommonMessageText('');
-        break;
-      case 'Good':
-        setGoodMessageText('');
-        break;
-      case 'Bad':
-        setBadMessageText('');
-        break;
-      case 'Pos':
-        setPosMessageText('');
-        break;
-      case 'Blunder':
-        setBlunderMessageText('');
-        break;
-      default:
-        break;
-    }
-  };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
+    const handleSendMessage = (category) => {
+        if (socketRef.current && messageInputs[category].trim()) {
+            const messageContent = messageInputs[category];
+            socketRef.current.emit('message', { content: messageContent, contentType: category, room: roomId, username });
+            handleInputChange('', category); // Clear input after sending
+        }
+    };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messageData, goodMessages, badMessages, posMessages, blunderMessages]);
+    const handleClickOpen = () => {
+        setOpen(true);
+      };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+    const handleClose = () => {
+        setOpen(false);
+    };
 
-  const sendMessage = (data) => {
-    console.log('Sending message to server:', data);
-    socket.emit('message', data);
-    inputRef.current.focus();
-  };
+    return (
+        <>
+        <div>
+        <LoginHeader/>
+        </div>
 
+        <div className='belowheader'>
+            <p className='roomname'>{room.roomName}</p>
 
-  // different new
+            <Fab variant="extended" style={{marginTop: '1%', justifyContent: 'right', fontSize: "medium"}} > <PeopleOutlineIcon sx={{ mr: 1 }} /> Users</Fab>
 
-  const [tab, setTab] = useState("CHATROOM");
-
-
-  return (
-  
-    <div className="container">
-      <Header/>
-        <div className="chat-box">
-            <div className="member-list">
-                <ul>
-                    <li onClick={()=>{setTab("CHATROOM")}} className={`member ${tab==="CHATROOM" && "active"}`}>Chatroom</li>
-                </ul>
-                <ul>
-                    <li onClick={()=>{setTab("Good")}} className={`member ${tab==="Good" && "active"}`}>What Went Good</li>
-                </ul>
-                <ul>
-                    <li onClick={()=>{setTab("Bad")}} className={`member ${tab==="Bad" && "active"}`}>What Went Wrong</li>
-                </ul>
-                <ul>
-                    <li onClick={()=>{setTab("Pos")}} className={`member ${tab==="Pos" && "active"}`}>Positives</li>
-                </ul>
-                <ul>
-                    <li onClick={()=>{setTab("Blunder")}} className={`member ${tab==="Blunder" && "active"}`}>Blunders</li>
-                </ul>
+            <InfoOutlinedIcon style={{margin: '2%', cursor: 'pointer'}} onClick={handleClickOpen}/>
+            <BootstrapDialog onClose={handleClose} aria-labelledby="customized-dialog-title" open={open}>
+            <DialogTitle sx={{ m: 0, p: 2 }} id="customized-dialog-title">
+             Room Details
+            </DialogTitle>
+            <IconButton aria-label="close" onClick={handleClose}
+            sx={{position: 'absolute', right: 8, top: 8, color: (theme) => theme.palette.grey[500]}}>
+          <CloseIcon />
+        </IconButton>
+        <DialogContent dividers>
+          <Typography gutterBottom>
+            Room Id: {room.roomId}
+          </Typography>
+          <Typography gutterBottom>
+            Room Name: {room.roomName}
+          </Typography>
+          <Typography gutterBottom>
+            Room Description: {room.roomDescription}
+          </Typography>
+        </DialogContent>
+        </BootstrapDialog>
+        </div>
+        <div className="container">
+            <div className="chat-area">
+                <MessageSection
+                    title="What Went Good"
+                    messages={goodMessages}
+                    inputValue={messageInputs.Good}
+                    onInputChange={(value) => handleInputChange(value, 'Good')}
+                    onSendMessage={() => handleSendMessage('Good')}
+                />
+                <MessageSection
+                    title="What Went Wrong"
+                    messages={badMessages}
+                    inputValue={messageInputs.Bad}
+                    onInputChange={(value) => handleInputChange(value, 'Bad')}
+                    onSendMessage={() => handleSendMessage('Bad')}
+                />
+                <MessageSection
+                    title="Positives"
+                    messages={posMessages}
+                    inputValue={messageInputs.Pos}
+                    onInputChange={(value) => handleInputChange(value, 'Pos')}
+                    onSendMessage={() => handleSendMessage('Pos')}
+                />
+                <MessageSection
+                    title="Blunders"
+                    messages={blunderMessages}
+                    inputValue={messageInputs.Blunder}
+                    onInputChange={(value) => handleInputChange(value, 'Blunder')}
+                    onSendMessage={() => handleSendMessage('Blunder')}
+                />
             </div>
-
-
-            {tab==="CHATROOM" && <div className="chat-content">
-                <ul className="chat-messages">
-                    {messageData.map((msg, index)=>(
-                        <li className={`message ${username === username} && self`} key={index}>
-                            {/* {chat.senderName !== userData.username && <div className="avatar">Incoming</div>} */}
-                            <div className="message-data">
-                                <p key={index}>{msg.content}</p>
-                            </div>
-                            {<div className="avatar self">{username}</div>}
-                        </li>
-                    ))}
-                </ul>
-
-                <div className="send-message">
-                    <input type="text" className="input-message" placeholder="enter the message" value={message} onChange={handleChange} /> 
-                    <button type="button" className="send-button" onClick={handleSubmit}>send</button>
-                </div>
-            </div>}
-
-            {tab==="Good" && <div className="chat-content">
-                <ul className="chat-messages">
-                    {goodMessages.map((msg, index)=>(
-                        <li className={`message ${username === username && "self"}`} key={index}>
-                            {/* {chat.senderName !== userData.username && <div className="avatar">Incoming</div>} */}
-                            <div className="message-data">
-                                <p key={index}>{msg.content}</p>
-                            </div>
-                            {<div className="avatar self">{msg.username}</div>}
-                        </li>
-                    ))}
-                    <div ref={messagesEndRef} />
-                </ul>
-
-                <div className="send-message">
-                    <input type="text" className="input-message" placeholder="enter the message" value={goodMessageText} onChange={(e) => setGoodMessageText(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef}/> 
-                    <button type="button" className="send-button" onClick={() => handleSendMessage(goodMessageText, 'Good')}>send</button>
-                </div>
-            </div>}
-
-            {tab==="Bad" && <div className="chat-content">
-                <ul className="chat-messages">
-                    {badMessages.map((msg, index)=>(
-                        <li className={`message ${username === username && "self"}`} key={index}>
-                            {/* {chat.senderName !== userData.username && <div className="avatar">Incoming</div>} */}
-                            <div className="message-data">
-                                <p key={index}>{msg.content}</p>
-                            </div>
-                            {<div className="avatar self">{msg.username}</div>}
-                        </li>
-                    ))}
-                    <div ref={messagesEndRef} />
-                </ul>
-
-                <div className="send-message">
-                    <input type="text" className="input-message" placeholder="enter the message" value={badMessageText} onChange={(e) => setBadMessageText(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef}/> 
-                    <button type="button" className="send-button" onClick={() => handleSendMessage(badMessageText, 'Bad')}>send</button>
-                </div>
-            </div>}
-
-            {tab==="Pos" && <div className="chat-content">
-                <ul className="chat-messages">
-                    {posMessages.map((msg, index)=>(
-                        <li className={`message ${username === username && "self"}`} key={index}>
-                            {/* {chat.senderName !== userData.username && <div className="avatar">Incoming</div>} */}
-                            <div className="message-data">
-                                <p key={index}>{msg.content}</p>
-                            </div>
-                            {<div className="avatar self">{msg.username}</div>}
-                        </li>
-                    ))}
-                    <div ref={messagesEndRef} />
-                </ul>
-
-                <div className="send-message">
-                    <input type="text" className="input-message" placeholder="enter the message" value={posMessageText} onChange={(e) => setPosMessageText(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef}/> 
-                    <button type="button" className="send-button" onClick={() => handleSendMessage(posMessageText, 'Pos')}>send</button>
-                </div>
-            </div>}
-
-            {tab==="Blunder" && <div className="chat-content">
-                <ul className="chat-messages">
-                    {blunderMessages.map((msg, index)=>(
-                        <li className={`message ${username === username && "self"}`} key={index}>
-                            {/* {chat.senderName !== userData.username && <div className="avatar">Incoming</div>} */}
-                            <div className="message-data">
-                                <p key={index}>{msg.content}</p>
-                            </div>
-                            {<div className="avatar self">{msg.username}</div>}
-                        </li>
-                    ))}
-                    <div ref={messagesEndRef} />
-                </ul>
-
-                <div className="send-message">
-                    <input type="text" className="input-message" placeholder="enter the message" value={blunderMessageText} onChange={(e) => setBlunderMessageText(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef}/> 
-                    <button type="button" className="send-button" onClick={() => handleSendMessage(blunderMessageText, 'Blunder')}>send</button>
-                </div>
-            </div>}
-
         </div>
-        
-        </div>
-  );
+        </>
+    );
 }
 
 export default ChatRoom;
 
 
-{/* <div>
-      <h2>Socket Connection Status: {connectionStatus ? 'Connected' : 'Disconnected'}</h2>
-      <form onSubmit={handleSubmit}>
-        <input type="text" value={message} onChange={handleChange} placeholder="Enter message" />
-        <button type="submit">Send</button>
-      </form>
-      <div>
-        <h3>Received Messages:</h3>
-        {messageData.map((msg, index) => (
-          <p key={index}>{msg.content}</p> // Display each message
-        ))}
-      </div>
-    </div> */}

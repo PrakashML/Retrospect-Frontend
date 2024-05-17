@@ -23,10 +23,6 @@ const Dashboard = () => {
         fetchRooms();
     }, [userId, reloadDashboard]);
 
-    // const openRoom = (url) => {
-    //     window.open(url, '_blank');
-    // }
-
     const openRoom = (roomId) => {
         window.open(`/chatroom/${roomId}`, '_blank');
     }
@@ -52,23 +48,23 @@ const Dashboard = () => {
     return (
         <div>
             <Header role={userRole} onCreateRoom={() => setRoomToUpdate({})} />
-            <div style={{ display: 'flex', justifyContent: 'flex-start', flexWrap: 'wrap', marginTop: '20px', marginLeft:'7%' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-start', flexWrap: 'wrap', marginTop: '20px', marginLeft:'7%',marginBottom:'3%' }}>
                 {rooms.map((room, index) => (
-                    <Box key={room.id || index} sx={{ position: 'relative', width: '25%', height: '160px', marginLeft: '20px', marginTop: '30px', padding: '20px', border: '3px solid black', borderRadius: '2px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', transition: 'transform 0.3s', ':hover': { transform: 'scale(1.02)' }, backgroundColor: "#f2f2f2" }}>
-                        <img src={room.room_image} alt="Room" style={{ position: 'absolute', top: 0, left: 0, width: '38%', height: '100%', objectFit: 'cover' }} />
-                        <Typography variant="h7" gutterBottom style={{ position: 'absolute', top: '5%', left: '60%', transform: 'translateX(-30%)', color: 'black', borderRadius: '5px', fontWeight: 'bold' }}>
+                    <Box key={room.id || index} sx={{ position: 'relative', width: '25%', height: '160px', marginLeft: '20px', marginTop: '30px', padding: '20px', boxShadow:'2px 2px grey', borderRadius: '2px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', transition: 'transform 0.3s', ':hover': { transform: 'scale(1.02)' }, background: "linear-gradient(to top, #accbee 0%, #e7f0fd 100%)" }}>
+                        {/* <img src={room.room_image} alt="Room" style={{ position: 'absolute', top: 0, left: 0, width: '38%', height: '100%', objectFit: 'cover' }} /> */}
+                        <Typography variant="h7" gutterBottom style={{ position: 'absolute', top: '5%', left: '50%', transform: 'translateX(-30%)', color: 'black', borderRadius: '5px', fontWeight: 'bold' }}>
                             {room.roomName}
                         </Typography>
-                        <Typography variant="body2" style={{ position: 'absolute', textAlign: 'left', top: '30%', left: '47%', color: 'grey', maxWidth: '50%' }}>
+                        <Typography variant="body2" style={{ position: 'absolute', textAlign: 'left', top: '30%', left: '10%', color: 'grey', maxWidth: '85%' }}>
                             {room.roomDescription}
                         </Typography>
                         <div style={{ position: 'absolute', top: '5px', right: '5px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: room.roomStatus === 'active' ? '#4ef037' : '#ff0000' }}></div>
                         <div style={{ position: 'absolute', bottom: '10px', right: '6%', display: 'flex' }}>
                             {userRole === 'admin' && (
-                                <Button variant="outlined" onClick={() => handleUpdateRoom(room)} style={{ marginRight: '10px', fontWeight: 'bold', color: 'black', width: '30px', fontSize: '10px', borderColor: 'black' }}>Update</Button>
+                                <Button variant="outlined" onClick={() => handleUpdateRoom(room)} style={{ marginRight: '10px', fontWeight: 'bold', color: 'black', width: '30px', fontSize: '10px', borderColor: 'black', background:'white' }}>Update</Button>
                             )}
                             {room.roomStatus === 'active' ? (
-                                <Button variant="contained" onClick={() => openRoom(room.roomId)} style={{ backgroundColor: 'black', color: 'white', fontSize: '10px' }}>Enter Room</Button>
+                                <Button variant="contained" onClick={() => openRoom(room.roomId)} style={{ backgroundColor: '#0092ca', color: 'white', fontSize: '10px' }}>Enter Room</Button>
                             ) : (
                                 <Button disabled style={{ fontWeight: 'bolder', color: '#5f6769', fontSize: '10px' }}>Room closed</Button>
                             )}
@@ -82,3 +78,4 @@ const Dashboard = () => {
 }
 
 export default Dashboard;
+

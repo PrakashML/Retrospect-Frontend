@@ -8,7 +8,6 @@ import img4 from '../Asserts/img4.jpeg';
 
 const Createroom = ({ open, onClose, roomToUpdate }) => {
   const [roomDetails, setRoomDetails] = useState({
-    roomId:'',
     roomDescription: '',
     roomName: '',
     room_image: '',
@@ -21,7 +20,6 @@ const Createroom = ({ open, onClose, roomToUpdate }) => {
       setRoomDetails(roomToUpdate); 
     } else {
       setRoomDetails({
-        roomId:'',
         roomDescription: '',
         roomName: '',
         room_image: '',
@@ -141,3 +139,4 @@ const Createroom = ({ open, onClose, roomToUpdate }) => {
 };
 
 export default Createroom;
+

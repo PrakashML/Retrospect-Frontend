@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ChatIcon from '../Asserts/chaticon.png';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -8,21 +8,34 @@ import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
-import { useLocation } from 'react-router-dom';
 import Button from '@mui/material/Button';
 import Createroom from './CreateRoom';
+import ResetPasswordDialog from './ResetPasswordDialog';
+import MyAccountDialog from './MyAccountDialog';
+import { useLocation } from 'react-router-dom';
+
 export default function ButtonAppBar() {
   const [anchorEl, setAnchorEl] = useState(null);
   const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail'));
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [openMyAccountDialog, setOpenMyAccountDialog] = useState(false);
+  const [openCreateRoomDialog, setOpenCreateRoomDialog] = useState(false);
+  const [openResetPasswordDialog, setOpenResetPasswordDialog] = useState(false); 
   const location = useLocation();
-  const role = location.pathname.split('/')[3];
-  const [openDialog, setOpenDialog] = useState(false);
+  const isAdminPage = location.pathname.includes('/admin');
 
-  const handleClick = (event) => {
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem('userData'));
+    if (userData && userData.isAdmin) {
+      setIsAdmin(true);
+    }
+  }, []);
+
+  const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };
 
-  const handleClose = () => {
+  const handleMenuClose = () => {
     setAnchorEl(null);
   };
 
@@ -33,17 +46,36 @@ export default function ButtonAppBar() {
     window.location.href = '/';
   };
 
-  const handleOpenDialog = () => {
-    setOpenDialog(true);
+  const handleOpenMyAccountDialog = () => {
+    setOpenMyAccountDialog(true);
+    handleMenuClose(); 
   };
 
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
+  const handleCloseMyAccountDialog = () => {
+    setOpenMyAccountDialog(false);
+  };
+
+  const handleOpenCreateRoomDialog = () => {
+    setOpenCreateRoomDialog(true);
+    handleMenuClose(); 
+  };
+
+  const handleCloseCreateRoomDialog = () => {
+    setOpenCreateRoomDialog(false);
+  };
+
+  const handleOpenResetPasswordDialog = () => {
+    setOpenResetPasswordDialog(true);
+    handleMenuClose(); 
+  };
+
+  const handleCloseResetPasswordDialog = () => {
+    setOpenResetPasswordDialog(false);
   };
 
   return (
     <Box sx={{ flexGrow: 0.5 }}>
-      <AppBar position="static" sx={{ backgroundColor: 'black' }}>
+      <AppBar position="static" sx={{ background: 'linear-gradient(114.9deg, rgb(34, 34, 34) 8.3%, rgb(0, 40, 60) 41.6%, rgb(0, 143, 213) 93.4%)' }}>
         <Toolbar>
           <IconButton
             size="large"
@@ -63,14 +95,11 @@ export default function ButtonAppBar() {
                 aria-label="account of current user"
                 aria-controls="menu-appbar"
                 aria-haspopup="true"
-                onClick={handleClick}
+                onClick={handleMenuOpen}
                 color="inherit"
               >
                 <AccountCircleOutlinedIcon />
               </IconButton>
-              <Typography variant="subtitle1" sx={{ color: 'white', marginRight: '3%' }}>
-                {userEmail}
-              </Typography>
               <Menu
                 id="menu-appbar"
                 anchorEl={anchorEl}
@@ -84,20 +113,26 @@ export default function ButtonAppBar() {
                   horizontal: 'right',
                 }}
                 open={Boolean(anchorEl)}
-                onClose={handleClose}
+                onClose={handleMenuClose}
               >
+                <MenuItem onClick={handleOpenMyAccountDialog}>My Account</MenuItem>
+                <MenuItem onClick={handleOpenResetPasswordDialog}>Reset Password</MenuItem> 
                 <MenuItem onClick={handleLogout}>Logout</MenuItem>
               </Menu>
-              {role === 'admin' && (
-                <>
-                  <Button color="inherit" style={{ fontWeight: 'bold', backgroundColor:'green', marginLeft:'-1%' }} onClick={handleOpenDialog}>+ Create Room</Button>
-                  <Createroom open={openDialog} onClose={handleCloseDialog} />
-                </>
+              <Typography variant="subtitle1" sx={{ color: 'white', marginRight: '3%' }}>
+                {userEmail}
+              </Typography>
+              {(isAdmin || isAdminPage) && ( 
+                <Button color="inherit" style={{ fontWeight: 'bold', background: 'linear-gradient(110.1deg, rgb(241, 115, 30) 18.9%, rgb(231, 29, 54) 90.7%)', marginLeft: '-1%' }} onClick={handleOpenCreateRoomDialog}>+ Create Room</Button>
               )}
+              <Createroom open={openCreateRoomDialog} onClose={handleCloseCreateRoomDialog} /> 
             </>
           ) : null}
         </Toolbar>
       </AppBar>
+      <MyAccountDialog open={openMyAccountDialog} onClose={handleCloseMyAccountDialog} />
+      <ResetPasswordDialog open={openResetPasswordDialog} onClose={handleCloseResetPasswordDialog} /> 
     </Box>
   );
 }
+
